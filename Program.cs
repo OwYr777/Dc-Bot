@@ -52,7 +52,7 @@ public class Program
                 var guild = _client!.GetGuild(guildId);
                 if (guild == null) return;
 
-                string[] simpleCmds = { "test-start", "test-stop", "next", "close", "leave" };
+                string[] simpleCmds = { "test-start", "test-stop", "next", "leave" };
                 foreach (var name in simpleCmds) 
                     await guild.CreateApplicationCommandAsync(new SlashCommandBuilder().WithName(name).WithDescription(name).Build());
                 
@@ -69,7 +69,6 @@ public class Program
                         .AddOption("previous-rank", ApplicationCommandOptionType.String, "Previous rank", false));
                 
                 await guild.CreateApplicationCommandAsync(tierCommand.Build());
-                Console.WriteLine("✅ System Ready.");
             } catch (Exception ex) { Console.WriteLine(ex.Message); }
         });
     }
@@ -98,13 +97,16 @@ public class Program
             if (!isTester) return;
             if (_queueList.Count == 0) { await command.RespondAsync("❌ Queue is empty!", ephemeral: true); return; }
 
-            var nextId = _queueList[0]; _queueList.RemoveAt(0);
+            var nextId = _queueList[0]; 
+            _queueList.RemoveAt(0);
             
+            // FUNKTION: Nachricht an die neue Nummer 1
             if (_queueList.Count > 0) {
                 var newFirst = guild.GetUser(_queueList[0]);
                 if (newFirst != null) try { await newFirst.SendMessageAsync("🔔 **You are now #1 in the queue!** Get ready."); } catch { }
             }
 
+            // FUNKTION: Ticket-Channel erstellen
             var target = guild.GetUser(nextId);
             var ticket = await guild.CreateTextChannelAsync($"ticket-{target?.Username ?? "user"}", tcp => {
                 tcp.PermissionOverwrites = new List<Overwrite> {
@@ -114,8 +116,9 @@ public class Program
                 };
             });
             await ticket.SendMessageAsync($"👋 {target?.Mention}, welcome to your test!\nTester: {user.Mention}");
+            
             await UpdateWaitlistDisplay(command.Channel, false); 
-            await command.RespondAsync($"✅ Ticket: {ticket.Mention}", ephemeral: true);
+            await command.RespondAsync($"✅ Ticket created: {ticket.Mention}", ephemeral: true);
         }
         else if (command.Data.Name == "stats") {
             var target = command.Data.Options.First().Value as SocketUser;
@@ -134,7 +137,7 @@ public class Program
         if (!_isTestingActive) {
             var eb = new EmbedBuilder()
                 .WithTitle("[1.21+] Minecraft Sword PvP Community")
-                .WithDescription("**No Testers Online**\n\nNo testers for your region are available at this time.\nYou will be pinged when a tester is available.\nCheck back later!\n\nLast testing session: " + (_lastSessionTimestamp ?? "None"))
+                .WithDescription("**No Testers Online**\n\nNo testers for your region are available at this time.\nYou will be pinged when a tester is available.\nCheck back later!\n\n**Last testing session:** " + (_lastSessionTimestamp ?? "None"))
                 .WithColor(Color.Red).Build();
             _lastWaitlistMessage = await channel.SendMessageAsync(embed: eb);
         } else {
@@ -155,6 +158,14 @@ public class Program
             
             _lastWaitlistMessage = await channel.SendMessageAsync(shouldPing ? $"<@&{pingRoleId}>" : null, embed: eb, components: cb);
         }
+    }
+
+    private async Task StopSession(ISocketMessageChannel channel) { 
+        _isTestingActive = false; 
+        _queueList.Clear(); 
+        // FUNKTION: Timestamp für Last Session wird hier gesetzt
+        _lastSessionTimestamp = DateTime.Now.ToString("dd. MMMM yyyy HH:mm"); 
+        await UpdateWaitlistDisplay(channel, false); 
     }
 
     private async Task HandleTierSet(SocketSlashCommand command, SocketGuild guild)
@@ -205,10 +216,5 @@ public class Program
         }
     }
 
-    private async Task StopSession(ISocketMessageChannel channel) { 
-        _isTestingActive = false; _queueList.Clear(); 
-        _lastSessionTimestamp = DateTime.Now.ToString("dd. MMMM yyyy HH:mm"); 
-        await UpdateWaitlistDisplay(channel, false); 
-    }
     private Task Log(LogMessage msg) { Console.WriteLine(msg.ToString()); return Task.CompletedTask; }
 }
