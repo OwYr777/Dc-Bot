@@ -69,7 +69,7 @@ public class Program
                         .AddOption("previous-rank", ApplicationCommandOptionType.String, "Previous rank", false));
                 
                 await guild.CreateApplicationCommandAsync(tierCommand.Build());
-                Console.WriteLine("✅ Bot Online & Original Design Fixed.");
+                Console.WriteLine("✅ System Ready.");
             } catch (Exception ex) { Console.WriteLine(ex.Message); }
         });
     }
