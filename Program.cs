@@ -1,4 +1,4 @@
-using Discord;
+﻿using Discord;
 using Discord.WebSocket;
 using System;
 using System.Collections.Generic;
@@ -9,7 +9,7 @@ public class Program
 {
     private DiscordSocketClient? _client;
 
-    // --- DEINE IDs (Bitte prüfen!) ---
+    // --- DEINE IDs ---
     private ulong guildId = 1488598599943327956;
     private ulong resultsChannelId = 1488610001156182197;
     private ulong highResultsChannelId = 1488610071377346721;
@@ -69,6 +69,7 @@ public class Program
                         .AddOption("previous-rank", ApplicationCommandOptionType.String, "Previous rank", false));
                 
                 await guild.CreateApplicationCommandAsync(tierCommand.Build());
+                Console.WriteLine("✅ Bot Online & Original Design Fixed.");
             } catch (Exception ex) { Console.WriteLine(ex.Message); }
         });
     }
@@ -107,7 +108,7 @@ public class Program
             var target = guild.GetUser(nextId);
             var ticket = await guild.CreateTextChannelAsync($"ticket-{target?.Username ?? "user"}", tcp => {
                 tcp.PermissionOverwrites = new List<Overwrite> {
-                    new Overwrite(guild.EveryoneRole.Id, PermissionTarget.Role, new WritePermissions(viewChannel: PermValue.Deny)),
+                    new Overwrite(guild.EveryoneRole.Id, PermissionTarget.Role, new OverwritePermissions(viewChannel: PermValue.Deny)),
                     new Overwrite(user.Id, PermissionTarget.User, new OverwritePermissions(viewChannel: PermValue.Allow, sendMessages: PermValue.Allow)),
                     new Overwrite(nextId, PermissionTarget.User, new OverwritePermissions(viewChannel: PermValue.Allow, sendMessages: PermValue.Allow))
                 };
