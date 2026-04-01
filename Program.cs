@@ -52,9 +52,10 @@ public class Program
                 var guild = _client!.GetGuild(guildId);
                 if (guild == null) return;
 
-                string[] simpleCmds = { "test-start", "test-stop", "next", "leave" };
-                foreach (var name in simpleCmds) 
-                    await guild.CreateApplicationCommandAsync(new SlashCommandBuilder().WithName(name).WithDescription(name).Build());
+                // Alle Commands registrieren
+                string[] commands = { "test-start", "test-stop", "next", "leave", "close" };
+                foreach (var name in commands) 
+                    await guild.CreateApplicationCommandAsync(new SlashCommandBuilder().WithName(name).WithDescription($"Execute {name}").Build());
                 
                 await guild.CreateApplicationCommandAsync(new SlashCommandBuilder()
                     .WithName("stats").WithDescription("View testing history").AddOption("user", ApplicationCommandOptionType.User, "The player", true).Build());
@@ -69,6 +70,7 @@ public class Program
                         .AddOption("previous-rank", ApplicationCommandOptionType.String, "Previous rank", false));
                 
                 await guild.CreateApplicationCommandAsync(tierCommand.Build());
+                Console.WriteLine("✅ System Ready & Timezone Fixed.");
             } catch (Exception ex) { Console.WriteLine(ex.Message); }
         });
     }
@@ -100,13 +102,11 @@ public class Program
             var nextId = _queueList[0]; 
             _queueList.RemoveAt(0);
             
-            // FUNKTION: Nachricht an die neue Nummer 1
             if (_queueList.Count > 0) {
                 var newFirst = guild.GetUser(_queueList[0]);
                 if (newFirst != null) try { await newFirst.SendMessageAsync("🔔 **You are now #1 in the queue!** Get ready."); } catch { }
             }
 
-            // FUNKTION: Ticket-Channel erstellen
             var target = guild.GetUser(nextId);
             var ticket = await guild.CreateTextChannelAsync($"ticket-{target?.Username ?? "user"}", tcp => {
                 tcp.PermissionOverwrites = new List<Overwrite> {
@@ -116,9 +116,15 @@ public class Program
                 };
             });
             await ticket.SendMessageAsync($"👋 {target?.Mention}, welcome to your test!\nTester: {user.Mention}");
-            
             await UpdateWaitlistDisplay(command.Channel, false); 
-            await command.RespondAsync($"✅ Ticket created: {ticket.Mention}", ephemeral: true);
+            await command.RespondAsync($"✅ Ticket: {ticket.Mention}", ephemeral: true);
+        }
+        else if (command.Data.Name == "close") {
+            if (command.Channel is SocketTextChannel ticketChannel && ticketChannel.Name.StartsWith("ticket-")) {
+                await command.RespondAsync("🔒 Closing ticket...");
+                await Task.Delay(2000);
+                await ticketChannel.DeleteAsync();
+            } else await command.RespondAsync("❌ Not a ticket channel.", ephemeral: true);
         }
         else if (command.Data.Name == "stats") {
             var target = command.Data.Options.First().Value as SocketUser;
@@ -128,6 +134,13 @@ public class Program
             } else await command.RespondAsync("No data found.", ephemeral: true);
         }
         else if (command.Data.Name == "tier") { await HandleTierSet(command, guild); }
+        else if (command.Data.Name == "leave") {
+             if (_queueList.Contains(command.User.Id)) {
+                _queueList.Remove(command.User.Id); 
+                await UpdateWaitlistDisplay(command.Channel, false);
+                await command.RespondAsync("👋 Left the queue.", ephemeral: true);
+            } else await command.RespondAsync("You are not in the queue.", ephemeral: true);
+        }
     }
 
     private async Task UpdateWaitlistDisplay(ISocketMessageChannel channel, bool shouldPing)
@@ -163,8 +176,11 @@ public class Program
     private async Task StopSession(ISocketMessageChannel channel) { 
         _isTestingActive = false; 
         _queueList.Clear(); 
-        // FUNKTION: Timestamp für Last Session wird hier gesetzt
-        _lastSessionTimestamp = DateTime.Now.ToString("dd. MMMM yyyy HH:mm"); 
+        
+        // ZEIT-FIX: Deutschland Zeit berechnen
+        var germanTime = TimeZoneInfo.ConvertTimeBySystemTimeZoneId(DateTime.Now, "Central European Standard Time");
+        _lastSessionTimestamp = germanTime.ToString("dd. MMMM yyyy HH:mm"); 
+        
         await UpdateWaitlistDisplay(channel, false); 
     }
 
